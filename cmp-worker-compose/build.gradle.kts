@@ -9,6 +9,28 @@ plugins {
     alias(libs.plugins.vanniktech.publish)
     id("io.github.mobilebytelabs.dokka")
     id("io.github.mobilebytelabs.kover")
+    alias(libs.plugins.roborazzi)
+}
+
+// The Roborazzi render goldens live in `desktopTest`. Adding that source set made Kover
+// instrument this module's DESKTOP variant for the first time, pulling its Compose
+// file-classes into the aggregate report (ComposableSingletons$WorkSchedulerScreenKt,
+// WorkInfoCardKt, LocalWorkManagerKt) and dropping the 100% gate to ~94% — the module was
+// exactly 100% before the goldens existed.
+//
+// Those classes are @Composable UI, which this project deliberately does NOT line-cover
+// ("@Composable functions are tested via screenshot / UI tests, not Kover line coverage"
+// — Kover.kt). The screenshot goldens ARE their coverage.
+//
+// Disabling instrumentation for this one task restores Kover's pre-goldens scope exactly,
+// rather than bolting more exclusion patterns onto the shared convention plugin. Scoped to
+// this module so no other module's gate can be weakened by it.
+kover {
+    currentProject {
+        instrumentation {
+            disabledForTestTasks.add("desktopTest")
+        }
+    }
 }
 
 group = "io.github.mobilebytelabs"
@@ -70,6 +92,17 @@ kotlin {
         androidMain {
             dependencies {
                 implementation(libs.kotlinx.coroutines.android)
+            }
+        }
+        // Render-regression goldens run on the desktop JVM target: device-free and
+        // deterministic. @Composable bodies are excluded from Kover by design, so these
+        // screenshots are the ONLY coverage the UI surfaces get.
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.kotlin.test)
+                implementation(libs.roborazzi.compose.desktop)
+                implementation(libs.compose.ui.test.junit4)
+                implementation(compose.desktop.currentOs)
             }
         }
     }
