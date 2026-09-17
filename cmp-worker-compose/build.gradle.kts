@@ -9,7 +9,6 @@ plugins {
     alias(libs.plugins.vanniktech.publish)
     id("io.github.mobilebytelabs.dokka")
     id("io.github.mobilebytelabs.kover")
-    alias(libs.plugins.roborazzi)
 }
 
 group = "io.github.mobilebytelabs"
@@ -71,17 +70,6 @@ kotlin {
         androidMain {
             dependencies {
                 implementation(libs.kotlinx.coroutines.android)
-            }
-        }
-        // Render-regression goldens run on the desktop JVM target: device-free and
-        // deterministic. @Composable bodies are excluded from Kover by design, so these
-        // screenshots are the ONLY coverage the UI surfaces get.
-        val desktopTest by getting {
-            dependencies {
-                implementation(libs.kotlin.test)
-                implementation(libs.roborazzi.compose.desktop)
-                implementation(libs.compose.ui.test.junit4)
-                implementation(compose.desktop.currentOs)
             }
         }
     }

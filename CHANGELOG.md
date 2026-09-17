@@ -61,7 +61,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     exercising the *old* compiler while still reporting green. Catalog-blind standalone
     builds (their `settings.gradle.kts` never wires the catalog) are reported as warnings
     rather than skipped, since they pin by hand and are a genuine drift risk.
-  - **`verifyRoborazziDesktop` now runs on every PR**, so the new render goldens cannot rot.
+
+### Known gaps
+
+- **No render-regression coverage for `cmp-worker-compose`'s `@Composable` surfaces.**
+  Those bodies are excluded from Kover via `annotatedBy(Composable)`, so a Compose upgrade
+  can change what they draw with nothing failing. A Roborazzi desktop-golden harness was
+  attempted and withdrawn: screenshot goldens are tied to the *rendering host's font set*,
+  so goldens recorded on macOS fail on the Linux CI runner (all 5 mismatched), and a second
+  CI job running `desktopTest` alongside the Kover job perturbed the 100% coverage gate via
+  the shared Gradle cache. Landing this needs a bundled font forced into the test theme for
+  cross-platform determinism, plus cache isolation between the two jobs — deliberately left
+  as follow-up rather than shipped half-working.
+
+  Manual check for now: Compose Multiplatform 1.11.0 -> 1.12.0 was verified render-identical
+  on macOS (10/10 goldens unchanged, `recorded: 0`) before the harness was withdrawn.
 
 ### Fixed
 
@@ -87,12 +101,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Render-regression goldens for `cmp-worker-compose`** (`RenderGoldenTest`, Roborazzi 1.74.0 on
-  the desktop JVM target — device-free and deterministic). `@Composable` bodies are excluded from
-  Kover by design, so these 10 screenshots are the only coverage those UI surfaces have. Goldens
-  live in `cmp-worker-compose/src/desktopTest/roborazzi/`. They were recorded on Compose
-  Multiplatform **1.11.0** and verified against **1.12.0**: 10/10 unchanged, confirming the
-  Compose upgrade altered nothing about how these surfaces render.
 
 - **`cmp-worker-scheduler` and `cmp-worker-compose` now opted into Kover** (`id("io.github.mobilebytelabs.kover")` applied to both modules' `plugins {}`). Coverage gate now spans **8 commonMain modules** (up from 6). Both modules already had 100% coverage (39 `@Test`s in scheduler, 21 in compose); `koverVerify` passes immediately.
 
