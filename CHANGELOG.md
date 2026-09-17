@@ -44,6 +44,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Kover bumped 0.9.1 → 0.9.8.** Fixes [#772](https://github.com/Kotlin/kotlinx-kover/issues/772) — `variantName null` crash when applying Kover to AGP 9 `android.kotlin.multiplatform.library` modules.
 
+### Added
+
+- **Regression guards in CI for three defects that had already shipped undetected**
+  (`pr-check.yml`: new `regression-guards` + `render-goldens` jobs). Each of the three
+  fixes below was previously a one-time repair with nothing preventing recurrence:
+  - **`apiCheck` now runs on every PR.** No workflow ran it, which is why the `.api`
+    dumps drifted from 2026-07-04 to 2026-09-17 unnoticed. A published library must not
+    be able to change its ABI silently.
+  - **`:build-logic:worker-app-plugin:test` now runs on every PR.** Nothing executed it,
+    so its configuration-cache failure was invisible. `org.gradle.configuration-cache=true`
+    means a regression now fails the job.
+  - **`scripts/check-no-catalog-version-drift.sh`** rejects any version literal in a
+    catalog-reading build that duplicates a `gradle/libs.versions.toml` value — the
+    `ConfigCacheCompatTest` failure mode, where a hardcoded Kotlin version kept a test
+    exercising the *old* compiler while still reporting green. Catalog-blind standalone
+    builds (their `settings.gradle.kts` never wires the catalog) are reported as warnings
+    rather than skipped, since they pin by hand and are a genuine drift risk.
+  - **`verifyRoborazziDesktop` now runs on every PR**, so the new render goldens cannot rot.
+
 ### Fixed
 
 - **`:build-logic:worker-app-plugin:test` could not store the configuration cache.** The `test`

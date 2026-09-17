@@ -18,6 +18,8 @@
 #   coverage             Kover 100% gate — JVM tests only (~3min), runs in parallel
 #   ios-bcv-check        BCV snapshot asserts iOS targets in cmp-worker-compose (ubuntu)
 #   sample-wasmjs        cmp-worker-sample-compose-store wasmJs browser build (ubuntu)
+#   regression-guards    apiCheck · build-logic plugin tests · catalog drift (ubuntu)
+#   render-goldens       Roborazzi desktop render goldens (ubuntu)
 
 name: PR Check
 
@@ -152,3 +154,70 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build wasmJs distribution
         run: ./gradlew :samples:cmp-worker-sample-compose-store:wasmJsBrowserDistribution
+
+  # ── Regression guards ─────────────────────────────────────────────────────
+  #
+  # Each step here exists because the corresponding defect ALREADY shipped once
+  # and went undetected for months. Added 2026-09-17.
+  #
+  #  1. apiCheck — the .api dumps silently drifted from 2026-07-04 (f6e5807
+  #     changed CodegenModel's public API without re-running apiDump) until
+  #     2026-09-17, because NO workflow ran apiCheck. A published library
+  #     must not be able to change its ABI unnoticed.
+  #
+  #  2. :build-logic:worker-app-plugin:test — this task could never store the
+  #     configuration cache (it captured a Configuration in a doFirst closure)
+  #     and nothing noticed, because no workflow ran it. gradle.properties sets
+  #     org.gradle.configuration-cache=true, so a regression fails here.
+  #
+  #  3. check-no-catalog-version-drift.sh — ConfigCacheCompatTest hardcoded
+  #     Kotlin 2.3.21, so after a catalog bump it kept exercising the OLD
+  #     compiler while still reporting PASSED. A green test that tests the
+  #     wrong thing is worse than no test.
+  regression-guards:
+    name: Regression guards (apiCheck · build-logic · catalog drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: No hardcoded versions duplicating the version catalog
+        run: bash scripts/check-no-catalog-version-drift.sh
+      - name: Binary-compatibility check (ABI must match committed .api dumps)
+        run: ./gradlew apiCheck --console=plain
+      - name: build-logic plugin tests (incl. configuration-cache compatibility)
+        run: ./gradlew :build-logic:worker-app-plugin:test --console=plain
+
+  # ── Render goldens ────────────────────────────────────────────────────────
+  #
+  # @Composable bodies are excluded from Kover via annotatedBy(...), so these
+  # screenshots are the ONLY coverage the UI surfaces have. Without this job the
+  # goldens rot: a Compose upgrade could change rendering with nothing failing.
+  # Desktop JVM target — no emulator, deterministic. xvfb-run is belt-and-braces
+  # for headless AWT init on the runner.
+  render-goldens:
+    name: Render goldens (Roborazzi · desktop)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Verify render goldens
+        run: xvfb-run -a ./gradlew :cmp-worker-compose:verifyRoborazziDesktop --console=plain
+      - name: Upload golden diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roborazzi-diffs
+          path: '**/build/outputs/roborazzi/'
+          retention-days: 7
