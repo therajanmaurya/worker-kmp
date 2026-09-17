@@ -62,28 +62,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     builds (their `settings.gradle.kts` never wires the catalog) are reported as warnings
     rather than skipped, since they pin by hand and are a genuine drift risk.
 
-### Added
+### Known gaps
 
-- **Render-regression goldens for `cmp-worker-compose`** (`RenderGoldenTest`, Roborazzi 1.74.0
-  on the desktop JVM target — no emulator, deterministic). `@Composable` bodies are excluded
-  from Kover via `annotatedBy(...)`, so these 10 screenshots are the only coverage those UI
-  surfaces have. Goldens live in `cmp-worker-compose/src/desktopTest/roborazzi/`.
+- **No render-regression coverage for `cmp-worker-compose`'s `@Composable` surfaces.**
+  Those bodies are excluded from Kover via `annotatedBy(...)`, so a Compose upgrade can change
+  what they draw with nothing failing. A Roborazzi desktop-golden harness was built and then
+  disabled — it works, but is not yet reproducible across machines:
 
-  They were recorded on Compose Multiplatform **1.11.0** and verified against **1.12.0**:
-  10/10 unchanged, confirming the Compose upgrade altered nothing about how these render.
+  - Goldens are PNGs whose text is rasterized with a font file from the **rendering host**.
+    Verifying macOS-recorded goldens on ubuntu mismatched all 5; on a `macos-15` runner
+    4 of 5 mismatched. The one that passed on macOS is the only golden containing **no text**
+    (`workProgressIndicator_indeterminate`) — non-text pixels matched byte-for-byte, so the
+    entire discrepancy is font version (recorded on macOS 26.5, runner is macOS 15).
+  - Making it reproducible needs a **font bundled into the test theme** so rendering stops
+    depending on the host OS. With that, it could also run on cheap Linux runners.
+  - Separately, `workStatusChip_allStates` should be split into one test per state: looping
+    all 6 in one test aborts at the first mismatch, so a failing CI run cannot produce a
+    complete set of replacement goldens.
 
-  **The CI job runs on macOS (`macos-15`), not ubuntu, and the image is pinned.** Screenshot
-  goldens are bound to the *rendering host's font set*: verifying macOS-recorded goldens on an
-  ubuntu runner mismatched all 5 tests — different fonts and antialiasing, not a regression.
-  `macos-latest` is deliberately avoided because it rolls to new macOS majors and would take
-  the system fonts with it, failing every golden at once with no code change. Runners are free
-  here (public repo).
+  The working harness (test, 10 goldens, Roborazzi wiring, macOS CI job, and the
+  `disabledForTestTasks("desktopTest")` Kover isolation it needs) is preserved in commit
+  `4f154f8` and can be restored from there rather than rewritten.
 
-  Kover instrumentation is disabled for `:cmp-worker-compose:desktopTest`
-  (`disabledForTestTasks`). Adding the source set otherwise made Kover instrument the module's
-  desktop variant for the first time, pulling Compose file-classes into the aggregate and
-  dropping the 100% gate to ~94%. Disabling that one task restores Kover's pre-goldens scope
-  exactly, instead of accumulating exclusion patterns in the shared convention plugin.
+  Verified manually in the meantime: Compose Multiplatform 1.11.0 -> 1.12.0 renders identically
+  on a single consistent platform (10/10 goldens unchanged, `recorded: 0`).
 
 ### Fixed
 
