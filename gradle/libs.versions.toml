@@ -15,7 +15,15 @@ dokka = "2.2.0"
 koin = "4.2.2"
 spotless = "8.10.2"
 detekt = "1.23.8"
-kover = "0.9.9"
+# PINNED to 0.9.8, deliberately NOT bumped with the rest of this toolchain refresh.
+# The exclusion set in build-logic Kover.kt is calibrated against 0.9.8 — its own comments
+# note that even there the ROOT aggregate koverVerify does not consistently apply the
+# report filters. Under 0.9.9 that divergence became intermittent: on CI the HTML report
+# read LINE 100% (747/747, zero missed) while koverVerify on the SAME run computed
+# 92.67% and failed (2026-09-17, runs 35197799811 vs 35205179652 — same config, different
+# verdicts). 0.9.9 brings nothing this project needs; revisit only alongside a rework of
+# the filter set that makes report and verify agree by construction.
+kover = "0.9.8"
 ktlint = "1.8.0"
 vanniktech-publish = "0.37.0"
 # Store5 — Mobile Native Foundation's KMP store/cache library.

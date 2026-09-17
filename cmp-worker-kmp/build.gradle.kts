@@ -8,6 +8,24 @@ plugins {
     id("io.github.mobilebytelabs.kover")
 }
 
+// Kover: exclude ForegroundWorker.jvm.kt's file-class at INSTRUMENTATION level.
+//
+// Its AWT/SystemTray branch is unreachable on a headless Linux CI runner
+// (SystemTray.isSupported() == false), leaving 36 lines uncovered and failing the 100%
+// gate. build-logic Kover.kt already lists this class under reports.filters.excludes,
+// but that filter does NOT take effect for it — verified on a Linux container: the class
+// is still reported with missed=36 under BOTH the fully-qualified and wildcard forms.
+// Report filters govern the generated report; excluding at instrumentation level keeps
+// the class out of coverage collection entirely, which does work (same container:
+// zero missing classes, koverVerify green).
+kover {
+    currentProject {
+        instrumentation {
+            excludedClasses.add("io.github.mobilebytelabs.worker.ForegroundWorker_jvmKt")
+        }
+    }
+}
+
 group = "io.github.mobilebytelabs"
 version = providers.gradleProperty("worker.version").get()
 

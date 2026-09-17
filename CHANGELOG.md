@@ -89,6 +89,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`koverVerify` failed on the headless Linux CI runner (100% gate).**
+  `ForegroundWorker.jvm.kt`'s AWT/SystemTray branch is unreachable when
+  `SystemTray.isSupported()` is false, leaving 36 lines uncovered. `build-logic` already
+  listed that class under `reports.filters.excludes`, but **that filter never took effect
+  for it** — reproduced in a Linux container with the class still reported `missed=36` under
+  both the fully-qualified and wildcard spellings. Report filters govern the generated
+  report, not coverage collection. Excluding at **instrumentation** level
+  (`kover { currentProject { instrumentation { excludedClasses.add(...) } } }` in
+  `cmp-worker-kmp`) keeps it out of collection entirely, which does work.
+
+- **Kover pinned to 0.9.8, deliberately not bumped with the rest of the toolchain.**
+  With the instrumentation exclusion in place, 0.9.8 passes on Linux and 0.9.9 still fails
+  at 93.6%. 0.9.9 also made the report/verify divergence intermittent: on CI the HTML report
+  read LINE 100% (747/747, zero missed) while `koverVerify` on the **same run** computed
+  92.67% and failed.
+
+
+
 - **`:build-logic:worker-app-plugin:test` could not store the configuration cache.** The `test`
   task captured the `kmpTestPluginClasspath` **`Configuration`** in a `doFirst` closure;
   `Configuration` is a disallowed type, so every run failed with "cannot serialize object of type
