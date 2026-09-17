@@ -18,6 +18,7 @@
 #   coverage             Kover 100% gate — JVM tests only (~3min), runs in parallel
 #   ios-bcv-check        BCV snapshot asserts iOS targets in cmp-worker-compose (ubuntu)
 #   sample-wasmjs        cmp-worker-sample-compose-store wasmJs browser build (ubuntu)
+#   regression-guards    apiCheck · build-logic plugin tests · catalog drift (ubuntu)
 
 name: PR Check
 
@@ -40,12 +41,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Spotless check
         run: ./gradlew spotlessCheck
       - name: Detekt
@@ -62,12 +63,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Run Android Robolectric tests
         run: |
           ./gradlew allTests \
@@ -79,7 +80,7 @@ jobs:
             --continue --console=plain
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: platform-test-results-android
           path: '**/build/reports/tests/'
@@ -95,17 +96,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Run Kover verify + reports
         run: ./gradlew koverHtmlReport koverXmlReport koverVerify --console=plain
       - name: Upload HTML coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kover-html-report
           path: build/reports/kover/html/
@@ -135,7 +136,7 @@ jobs:
     name: cmp-worker-compose iOS BCV snapshot
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Assert iOS BCV snapshot present + lists iOS targets
         run: bash scripts/check-ios-artifact.sh
 
@@ -144,11 +145,110 @@ jobs:
     name: cmp-worker-sample-compose-store — wasmJs build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build wasmJs distribution
         run: ./gradlew :samples:cmp-worker-sample-compose-store:wasmJsBrowserDistribution
+
+  # ── Regression guards ─────────────────────────────────────────────────────
+  #
+  # Each step here exists because the corresponding defect ALREADY shipped once
+  # and went undetected for months. Added 2026-09-17.
+  #
+  #  1. apiCheck — the .api dumps silently drifted from 2026-07-04 (f6e5807
+  #     changed CodegenModel's public API without re-running apiDump) until
+  #     2026-09-17, because NO workflow ran apiCheck. A published library
+  #     must not be able to change its ABI unnoticed.
+  #
+  #  2. :build-logic:worker-app-plugin:test — this task could never store the
+  #     configuration cache (it captured a Configuration in a doFirst closure)
+  #     and nothing noticed, because no workflow ran it. gradle.properties sets
+  #     org.gradle.configuration-cache=true, so a regression fails here.
+  #
+  #  3. check-no-catalog-version-drift.sh — ConfigCacheCompatTest hardcoded
+  #     Kotlin 2.3.21, so after a catalog bump it kept exercising the OLD
+  #     compiler while still reporting PASSED. A green test that tests the
+  #     wrong thing is worse than no test.
+  regression-guards:
+    name: Regression guards (apiCheck · build-logic · catalog drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: No hardcoded versions duplicating the version catalog
+        run: bash scripts/check-no-catalog-version-drift.sh
+      - name: Binary-compatibility check (ABI must match committed .api dumps)
+        run: ./gradlew apiCheck --console=plain
+
+      # On failure, make the ABI delta ACTIONABLE rather than a wall of log.
+      # apiCheck generates dumps under build/api before comparing, so they exist
+      # even when it fails. We surface the exact diff and attach both sides.
+      #
+      # NOTE: we deliberately do NOT run `apiDump` and auto-commit. Silently
+      # accepting the new ABI is exactly how the dumps drifted unnoticed from
+      # 2026-07-04 to 2026-09-17 — a public API change must be reviewed by a
+      # human, not rubber-stamped by CI.
+      - name: Show ABI diff in PR summary
+        if: failure()
+        run: |
+          {
+            echo "## ABI mismatch — committed .api dumps are out of date"
+            echo ""
+            echo "\`apiCheck\` failed: the generated ABI differs from the committed dumps."
+            echo "Review the diff below. If the change is **intended**, run:"
+            echo ""
+            echo '```'
+            echo './gradlew apiDump'
+            echo '```'
+            echo ""
+            echo "and commit the updated \`.api\` files. If it is **not** intended, the"
+            echo "source change altered the public API — fix the source instead."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          # BCV also emits ~90 INTERMEDIATE per-target dumps under
+          # build/api/{iosArm64,js,wasmJs,klib,klib-all}/ that have no committed
+          # counterpart. Only dumps that map onto a committed .api are the real
+          # comparison set — the rest are build artifacts, not "new modules", and
+          # listing them would bury the actual diff.
+          changed=0; compared=0
+          while IFS= read -r gen; do
+            rel="${gen#./}"
+            committed=$(echo "$rel" | sed -E 's#/build/api/(klib-all/extracted/)?#/api/#')
+            [ -f "$committed" ] || continue          # intermediate dump: skip
+            compared=$((compared + 1))
+            diff -q "$committed" "$gen" >/dev/null 2>&1 && continue
+            changed=$((changed + 1))
+            {
+              echo "### \`$committed\`"
+              echo '```diff'
+              diff -u "$committed" "$gen" | tail -n +3 | head -120
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          done < <(find . -path "*/build/api/*.api" -not -path "./samples/kmp-project-template/*" 2>/dev/null | sort)
+          echo "_Compared $compared committed dump(s); $changed differ._" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$compared" = "0" ]; then
+            echo "_No generated dumps found — apiCheck failed before generating them._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+
+      - name: Upload generated .api dumps
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-api-dumps
+          path: |
+            **/build/api/**/*.api
+            **/api/**/*.api
+          retention-days: 14
+
+      - name: build-logic plugin tests (incl. configuration-cache compatibility)
+        run: ./gradlew :build-logic:worker-app-plugin:test --console=plain

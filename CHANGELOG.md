@@ -13,9 +13,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Toolchain + dependency refresh to latest.** Gradle 9.5.1 → **9.7.1** (wrapper now pins
+  `distributionSha256Sum`), Kotlin 2.3.21 → **2.4.20**, AGP 9.2.1 → **9.4.0**, Compose
+  Multiplatform 1.11.0 → **1.12.0**, coroutines 1.10.2 → 1.11.0, serialization 1.8.1 → 1.11.0,
+  Koin 4.0.4 → 4.2.2, Kermit 2.0.6 → 2.2.0, Dokka 2.0.0 → 2.2.0, BCV 0.17.0 → 0.18.2, Spotless
+  8.5.1 → 8.10.2, Kover 0.9.8 → 0.9.9, vanniktech 0.36.0 → 0.37.0, plugin-publish 1.3.0 → 2.2.1,
+  kctfork 0.5.0 → 0.14.0, Robolectric 4.13 → 4.17, androidx work 2.11.0 → 2.11.2,
+  test-core 1.6.1 → 1.7.0, compose-bom → 2026.09.00, Store5 5.1.0-alpha06 → 5.1.0-beta01.
+  KSP stays on **2.3.12** — the newest published KSP; there is no 2.4.x line yet, and the old
+  KSP1 `<kotlin>-<ksp>` scheme is retired. KSP 2.3.12 is verified working against the 2.4.20
+  compiler.
+
+- **BREAKING for Android consumers: `compileSdk` 36 → 37.** androidx.compose 1.12.0 (pulled in by
+  Compose Multiplatform 1.12.0) requires dependents to compile against API 37 or later; building
+  against 36 fails `checkAndroidMainAarMetadata`. Consumers must raise their own `compileSdk`.
+
+- **Build memory: `MaxMetaspaceSize` of 1g is no longer sufficient.** The Kotlin 2.4.20 +
+  Compose 1.12.0 + AGP 9.4.0 plugin/compiler set loads materially more classes than its
+  predecessor. Measured on a 1g ceiling: metaspace pinned at 99.4%, old gen at 100%, 735 full GCs
+  totalling ~1,895s in a build that produced no artifacts. Use at least `-XX:MaxMetaspaceSize=2g`
+  in `org.gradle.jvmargs` (CI included). A **full `assemble`** — every KMP target plus the three
+  sample apps (iOS debug+release frameworks, wasmJs, js, Android debug+release) in one daemon —
+  additionally needs more than a 4g heap; 2g metaspace alone still died with "running out of JVM
+  heap space" at a reported 2.6 GiB. Use `-Xmx6g` for full-matrix builds. Incremental
+  single-target builds are unaffected.
+
+- **`kotlin-js-store/yarn.lock` and `kotlin-js-store/wasm/yarn.lock` regenerated.** The JS/wasm
+  dependency set shifted with the Kotlin/Compose bump, so `kotlinWasmStoreYarnLock` failed
+  against the committed locks until they were upgraded.
+
 - **Kover bumped 0.9.1 → 0.9.8.** Fixes [#772](https://github.com/Kotlin/kotlinx-kover/issues/772) — `variantName null` crash when applying Kover to AGP 9 `android.kotlin.multiplatform.library` modules.
 
 ### Added
+
+- **Regression guards in CI for three defects that had already shipped undetected**
+  (`pr-check.yml`: new `regression-guards` + `render-goldens` jobs). Each of the three
+  fixes below was previously a one-time repair with nothing preventing recurrence:
+  - **`apiCheck` now runs on every PR.** No workflow ran it, which is why the `.api`
+    dumps drifted from 2026-07-04 to 2026-09-17 unnoticed. A published library must not
+    be able to change its ABI silently.
+  - **`:build-logic:worker-app-plugin:test` now runs on every PR.** Nothing executed it,
+    so its configuration-cache failure was invisible. `org.gradle.configuration-cache=true`
+    means a regression now fails the job.
+  - **`scripts/check-no-catalog-version-drift.sh`** rejects any version literal in a
+    catalog-reading build that duplicates a `gradle/libs.versions.toml` value — the
+    `ConfigCacheCompatTest` failure mode, where a hardcoded Kotlin version kept a test
+    exercising the *old* compiler while still reporting green. Catalog-blind standalone
+    builds (their `settings.gradle.kts` never wires the catalog) are reported as warnings
+    rather than skipped, since they pin by hand and are a genuine drift risk.
+
+### Known gaps
+
+- **No render-regression coverage for `cmp-worker-compose`'s `@Composable` surfaces.**
+  Those bodies are excluded from Kover via `annotatedBy(...)`, so a Compose upgrade can change
+  what they draw with nothing failing. A Roborazzi desktop-golden harness was built and then
+  disabled — it works, but is not yet reproducible across machines:
+
+  - Goldens are PNGs whose text is rasterized with a font file from the **rendering host**.
+    Verifying macOS-recorded goldens on ubuntu mismatched all 5; on a `macos-15` runner
+    4 of 5 mismatched. The one that passed on macOS is the only golden containing **no text**
+    (`workProgressIndicator_indeterminate`) — non-text pixels matched byte-for-byte, so the
+    entire discrepancy is font version (recorded on macOS 26.5, runner is macOS 15).
+  - Making it reproducible needs a **font bundled into the test theme** so rendering stops
+    depending on the host OS. With that, it could also run on cheap Linux runners.
+  - Separately, `workStatusChip_allStates` should be split into one test per state: looping
+    all 6 in one test aborts at the first mismatch, so a failing CI run cannot produce a
+    complete set of replacement goldens.
+
+  The working harness (test, 10 goldens, Roborazzi wiring, macOS CI job, and the
+  `disabledForTestTasks("desktopTest")` Kover isolation it needs) is preserved in commit
+  `4f154f8` and can be restored from there rather than rewritten.
+
+  Verified manually in the meantime: Compose Multiplatform 1.11.0 -> 1.12.0 renders identically
+  on a single consistent platform (10/10 goldens unchanged, `recorded: 0`).
+
+### Fixed
+
+- **`koverVerify` failed on the headless Linux CI runner (100% gate).**
+  `ForegroundWorker.jvm.kt`'s AWT/SystemTray branch is unreachable when
+  `SystemTray.isSupported()` is false, leaving 36 lines uncovered. `build-logic` already
+  listed that class under `reports.filters.excludes`, but **that filter never took effect
+  for it** — reproduced in a Linux container with the class still reported `missed=36` under
+  both the fully-qualified and wildcard spellings. Report filters govern the generated
+  report, not coverage collection. Excluding at **instrumentation** level
+  (`kover { currentProject { instrumentation { excludedClasses.add(...) } } }` in
+  `cmp-worker-kmp`) keeps it out of collection entirely, which does work.
+
+- **Kover pinned to 0.9.8, deliberately not bumped with the rest of the toolchain.**
+  With the instrumentation exclusion in place, 0.9.8 passes on Linux and 0.9.9 still fails
+  at 93.6%. 0.9.9 also made the report/verify divergence intermittent: on CI the HTML report
+  read LINE 100% (747/747, zero missed) while `koverVerify` on the **same run** computed
+  92.67% and failed.
+
+
+
+- **`:build-logic:worker-app-plugin:test` could not store the configuration cache.** The `test`
+  task captured the `kmpTestPluginClasspath` **`Configuration`** in a `doFirst` closure;
+  `Configuration` is a disallowed type, so every run failed with "cannot serialize object of type
+  `DefaultLegacyConfiguration`". Both classpaths are now wrapped with `files(...)`. Reproduced on
+  the pre-upgrade tree (Kotlin 2.3.21 / Gradle 9.5.1), so this was pre-existing, not a regression
+  from the toolchain bump.
+
+- **`cmp-worker-desktop-daemon` `distTar`/`distZip` failed with a duplicate entry.** Compose
+  Multiplatform 1.12.0 redirects `org.jetbrains.compose.runtime:*` to `androidx.compose.runtime:*`,
+  and both groups publish the same `<artifactId>-<version>.jar` filename, which collides when the
+  `application` plugin flattens the runtime classpath into `lib/`. A blanket `duplicatesStrategy`
+  is unsafe here — it resolves by classpath order, which differs per artifact, and could keep the
+  4,865-byte JetBrains redirect shim while dropping the 1,948,637-byte real androidx runtime. The
+  shims (0 classes) are now filtered out of the archive; dependency resolution is untouched,
+  since androidx is reached *through* them.
+
+- **`ConfigCacheCompatTest` hardcoded the Kotlin version** (`2.3.21`) for its injected consumer
+  build, so after a catalog bump it kept exercising the old compiler while still reporting green.
+  It now reads `worker.kotlin.version`, supplied by the `test` task from `libs.versions.kotlin`.
+
+### Added
+
 
 - **`cmp-worker-scheduler` and `cmp-worker-compose` now opted into Kover** (`id("io.github.mobilebytelabs.kover")` applied to both modules' `plugins {}`). Coverage gate now spans **8 commonMain modules** (up from 6). Both modules already had 100% coverage (39 `@Test`s in scheduler, 21 in compose); `koverVerify` passes immediately.
 

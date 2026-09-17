@@ -5,21 +5,21 @@ public final class io/github/mobilebytelabs/worker/compose/BackgroundCapabilitie
 public final class io/github/mobilebytelabs/worker/compose/ComposableSingletons$WorkInfoCardKt {
 	public static final field INSTANCE Lio/github/mobilebytelabs/worker/compose/ComposableSingletons$WorkInfoCardKt;
 	public fun <init> ()V
-	public final fun getLambda$1760116693$cmp_worker_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$1994014142$cmp_worker_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1760116693$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$1994014142$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function3;
 }
 
 public final class io/github/mobilebytelabs/worker/compose/ComposableSingletons$WorkSchedulerScreenKt {
 	public static final field INSTANCE Lio/github/mobilebytelabs/worker/compose/ComposableSingletons$WorkSchedulerScreenKt;
 	public fun <init> ()V
-	public final fun getLambda$-100502343$cmp_worker_compose ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$-1355998502$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-2143592349$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-993760062$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$1095874208$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$1106056702$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$1331257239$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$585206009$cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-100502343$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$-1355998502$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-2143592349$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-993760062$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1095874208$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1106056702$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$1331257239$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$585206009$io_github_mobilebytelabs_cmp_worker_compose ()Lkotlin/jvm/functions/Function2;
 }
 
 public final class io/github/mobilebytelabs/worker/compose/LocalWorkManagerKt {

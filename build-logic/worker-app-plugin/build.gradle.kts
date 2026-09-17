@@ -132,12 +132,23 @@ tasks.test {
     testLogging { events("passed", "skipped", "failed") }
     // Expose the plugin-under-test classpath + the full KMP/KSP plugin classpath so
     // ConfigCacheCompatTest can hand a single unified classloader to GradleRunner.
-    val workerClasspath = sourceSets.main.get().runtimeClasspath
-    val kmpClasspath = kmpTestPluginClasspath
+    // `files(...)` wraps each in a ConfigurableFileCollection. Capturing the Configuration
+    // itself (or a source set's raw runtimeClasspath) in the doFirst closure below makes the
+    // configuration cache fail to STORE with "cannot serialize object of type
+    // DefaultLegacyConfiguration" — Configuration is a disallowed type. Pre-existing defect,
+    // reproduced on the pre-upgrade tree at Kotlin 2.3.21 / Gradle 9.5.1, so it is not an
+    // artifact of the 2.4.20 bump; it is the gap `worker-app-plugin-config-cache-compat` tracks.
+    val workerClasspath = files(sourceSets.main.get().runtimeClasspath)
+    val kmpClasspath = files(kmpTestPluginClasspath)
     inputs.files(workerClasspath, kmpClasspath)
+    // The consumer build the test injects must use the SAME Kotlin the catalog pins —
+    // a hardcoded literal in the test silently keeps exercising the old compiler after a bump.
+    val catalogKotlinVersion = libs.versions.kotlin.get()
+    inputs.property("catalogKotlinVersion", catalogKotlinVersion)
     doFirst {
         systemProperty("worker.plugin.classpath", workerClasspath.asPath)
         systemProperty("kmp.plugin.classpath", kmpClasspath.asPath)
+        systemProperty("worker.kotlin.version", catalogKotlinVersion)
     }
 }
 
