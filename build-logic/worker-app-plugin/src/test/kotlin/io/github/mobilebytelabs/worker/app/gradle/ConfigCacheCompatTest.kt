@@ -29,6 +29,16 @@ class ConfigCacheCompatTest {
 
     private lateinit var projectDir: File
 
+    /**
+     * Kotlin version for the injected consumer build, supplied by the `test` task from
+     * `libs.versions.kotlin`. Hardcoding it here let the fixture keep compiling against the
+     * OLD compiler after a catalog bump, so the guard silently stopped testing what shipped.
+     */
+    private val kotlinVersion: String =
+        requireNotNull(System.getProperty("worker.kotlin.version")) {
+            "worker.kotlin.version sysprop missing — the test task must pass libs.versions.kotlin"
+        }
+
     private fun write(rel: String, content: String) {
         val f = File(projectDir, rel)
         f.parentFile.mkdirs()
@@ -70,7 +80,7 @@ class ConfigCacheCompatTest {
             "build.gradle.kts",
             """
             plugins {
-                id("org.jetbrains.kotlin.multiplatform") version "2.3.21"
+                id("org.jetbrains.kotlin.multiplatform") version "$kotlinVersion"
                 id("io.github.mobilebytelabs.worker-app")
             }
 

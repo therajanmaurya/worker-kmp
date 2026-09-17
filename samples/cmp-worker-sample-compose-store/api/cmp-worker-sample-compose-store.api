@@ -7,6 +7,23 @@ public final class io/github/mobilebytelabs/worker/sample/composestore/di/Sample
 	public static final fun sampleKoinModules (Lio/github/mobilebytelabs/worker/WorkManagerFactory;)Ljava/util/List;
 }
 
+public final class io/github/mobilebytelabs/worker/sample/composestore/di/generated/ComposableSingletons$Generated_MainKt {
+	public static final field INSTANCE Lio/github/mobilebytelabs/worker/sample/composestore/di/generated/ComposableSingletons$Generated_MainKt;
+	public fun <init> ()V
+	public final fun getLambda$-1185757688$io_github_mobilebytelabs_cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
+}
+
+public final class io/github/mobilebytelabs/worker/sample/composestore/di/generated/Generated_MainKt {
+	public static final fun main ()V
+	public static synthetic fun main ([Ljava/lang/String;)V
+}
+
+public final class io/github/mobilebytelabs/worker/sample/composestore/di/generated/WorkerKmpAuto {
+	public static final field $stable I
+	public static final field INSTANCE Lio/github/mobilebytelabs/worker/sample/composestore/di/generated/WorkerKmpAuto;
+	public final fun install ()V
+}
+
 public final class io/github/mobilebytelabs/worker/sample/composestore/domain/Article {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V
@@ -36,15 +53,15 @@ public final class io/github/mobilebytelabs/worker/sample/composestore/ui/Articl
 public final class io/github/mobilebytelabs/worker/sample/composestore/ui/ComposableSingletons$ArticlesScreenKt {
 	public static final field INSTANCE Lio/github/mobilebytelabs/worker/sample/composestore/ui/ComposableSingletons$ArticlesScreenKt;
 	public fun <init> ()V
-	public final fun getLambda$-1743686593$cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function3;
-	public final fun getLambda$300306537$cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-1743686593$io_github_mobilebytelabs_cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function3;
+	public final fun getLambda$300306537$io_github_mobilebytelabs_cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
 }
 
 public final class io/github/mobilebytelabs/worker/sample/composestore/ui/ComposableSingletons$SampleAppKt {
 	public static final field INSTANCE Lio/github/mobilebytelabs/worker/sample/composestore/ui/ComposableSingletons$SampleAppKt;
 	public fun <init> ()V
-	public final fun getLambda$-2132894639$cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
-	public final fun getLambda$-989649643$cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-2132894639$io_github_mobilebytelabs_cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
+	public final fun getLambda$-989649643$io_github_mobilebytelabs_cmp_worker_sample_compose_store ()Lkotlin/jvm/functions/Function2;
 }
 
 public final class io/github/mobilebytelabs/worker/sample/composestore/ui/SampleAppKt {
